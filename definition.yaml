@@ -1,0 +1,230 @@
+# Copyright 2021 Cloudera, Inc
+#
+# All rights reserved.
+#
+# The source code for this program is proprietary to Cloudera, Inc and, absent a
+# written agreement with Cloudera, Inc. to the contrary, is not published.
+#
+# Cloudera, Inc. maintains this source code as its trade secrets, irrespective of what has been or may be deposited with the U.S. Copyright Office.
+#
+
+clusters:
+  - name: Data Engineering and Mart Cluster
+    services: [ATLAS, HBASE, HDFS, HIVE, HIVE_ON_TEZ, HUE, IMPALA, INFRA_SOLR, KAFKA, KNOX, QUEUEMANAGER, RANGER, SPARK_ON_YARN, SPARK3_ON_YARN, TEZ, YARN, ZOOKEEPER]
+    repositories:
+# Set the local runtime parcel repositories here noting Spark 3 is a seperate parcel
+      - https://local.repo/cdh/7.1.8/parcels/
+      - https://local.repo/spark3/3.3.1/parcels/
+    databases:
+      HIVE:
+        host: "{{ database_host }}"
+        port: "{{ database_type | default_database_port }}"
+        type: "{{ database_type }}"
+        name: hive
+        user: hive
+        password: "{{ vault__hive_database_password }}"
+      HUE:
+        host: "{{ database_host }}"
+        port: "{{ database_type | default_database_port }}"
+        type: "{{ database_type }}"
+        name: hue
+        user: hue
+        password: "{{ vault__hue_database_password }}"
+      RANGER:
+        host: "{{ database_host }}"
+        port: "{{ database_type | default_database_port }}"
+        type: "{{ database_type }}"
+        name: ranger
+        user: rangeradmin
+        password: "{{ vault__rangeradmin_database_password }}"
+    security:
+      kerberos: true
+      tls: true
+      hdfs_encryption: false
+    configs:
+      HDFS:
+        SERVICEWIDE:
+          dfs_ha_fencing_methods: 'shell(true)'
+          dfs_namenode_acls_enabled: true
+        DATANODE:
+          dfs_data_dir_list: /dfs/dn
+        NAMENODE:
+          autofailover_enabled: true
+          dfs_federation_namenode_nameservice: hahdfs
+          dfs_name_dir_list: /dfs/nn
+          dfs_namenode_quorum_journal_name: hahdfs
+        JOURNALNODE:
+          dfs_journalnode_edits_dir: /dfs/jn
+        SECONDARYNAMENODE:
+          fs_checkpoint_dir_list: /dfs/snn
+      HIVE:
+        HIVEMETASTORE:
+          hive_enable_db_notification: true
+          hive_metastore_delegation_token_store: org.apache.hadoop.hive.thrift.DBTokenStore
+      IMPALA:
+        IMPALAD:
+          enable_audit_event_log: true
+          scratch_dirs: /tmp/impala
+      KAFKA:
+        KAFKA_BROKER:
+          log.dirs: /data/kafka
+      YARN:
+        RESOURCEMANAGER:
+          yarn_scheduler_maximum_allocation_mb: 32768
+          yarn_scheduler_maximum_allocation_vcores: 20
+        NODEMANAGER:
+          yarn_nodemanager_resource_memory_mb: 32768
+          yarn_nodemanager_resource_cpu_vcores: 20
+          yarn_nodemanager_local_dirs: /tmp/nm
+          yarn_nodemanager_log_dirs: /var/log/nm
+        GATEWAY:
+          mapred_submit_replication: 3
+          mapred_reduce_tasks: 16
+      ZOOKEEPER:
+        SERVICEWIDE:
+          zookeeper_datadir_autocreate: true
+    host_templates:
+      Master1:
+        HBASE: [MASTER]
+        HDFS: [NAMENODE, JOURNALNODE, FAILOVERCONTROLLER]
+        IMPALA: [IMPALAD]
+        INFRA_SOLR: [SOLR_SERVER]
+        KAFKA: [KAFKA_BROKER]
+        TEZ: [GATEWAY]
+        YARN: [RESOURCEMANAGER]
+        ZOOKEEPER: [SERVER]
+      Master2:
+        HBASE: [MASTER]
+        HDFS: [NAMENODE, JOURNALNODE, FAILOVERCONTROLLER]
+        KAFKA: [KAFKA_BROKER]
+        IMPALA: [IMPALAD]
+        INFRA_SOLR: [SOLR_SERVER]
+        TEZ: [GATEWAY]
+        YARN: [RESOURCEMANAGER]
+        ZOOKEEPER: [SERVER]
+      Master3:
+        HBASE: [MASTER]
+        HDFS: [JOURNALNODE, BALANCER]
+        IMPALA: [IMPALAD, STATESTORE, CATALOGSERVER]
+        INFRA_SOLR: [SOLR_SERVER]
+        KAFKA: [KAFKA_BROKER]
+        QUEUEMANAGER: [QUEUEMANAGER_STORE, QUEUEMANAGER_WEBAPP]
+        SPARK_ON_YARN: [SPARK_YARN_HISTORY_SERVER]
+        SPARK3_ON_YARN: [SPARK3_YARN_HISTORY_SERVER]
+        TEZ: [GATEWAY]
+        YARN: [JOBHISTORY]
+        ZOOKEEPER: [SERVER]
+      Utility1:
+        ATLAS: [ATLAS_SERVER]
+        HIVE: [HIVEMETASTORE]
+        RANGER: [RANGER_ADMIN]
+      Utility2:
+        ATLAS: [ATLAS_SERVER]
+        HIVE: [HIVEMETASTORE]
+        RANGER: [RANGER_ADMIN, RANGER_TAGSYNC, RANGER_USERSYNC]        
+      Edge1:
+        HBASE: [GATEWAY, HBASERESTSERVER, HBASETHRIFTSERVER]
+        HDFS: [GATEWAY, HTTPFS]
+        HIVE: [GATEWAY]
+        HIVE_ON_TEZ: [GATEWAY, HIVESERVER2]
+        HUE: [HUE_SERVER, HUE_LOAD_BALANCER, KT_RENEWER]
+        KNOX: [KNOX_GATEWAY]
+        SPARK_ON_YARN: [GATEWAY]
+        SPARK3_ON_YARN: [GATEWAY]
+      Edge2:
+        HBASE: [GATEWAY, HBASERESTSERVER, HBASETHRIFTSERVER]
+        HDFS: [GATEWAY, HTTPFS]
+        HIVE: [GATEWAY]
+        HIVE_ON_TEZ: [GATEWAY, HIVESERVER2]
+        HUE: [HUE_SERVER, KT_RENEWER]
+        KNOX: [KNOX_GATEWAY]
+        SPARK_ON_YARN: [GATEWAY]
+        SPARK3_ON_YARN: [GATEWAY]
+      Workers:
+        HBASE: [REGIONSERVER]
+        HDFS: [DATANODE]
+        HIVE: [GATEWAY]
+        HIVE_ON_TEZ: [GATEWAY]
+        IMPALA: [IMPALAD]
+        SPARK_ON_YARN: [GATEWAY]
+        SPARK3_ON_YARN: [GATEWAY]
+        TEZ: [GATEWAY]
+        YARN: [NODEMANAGER]
+
+mgmt:
+  name: Cloudera Management Service
+  services: [ALERTPUBLISHER, EVENTSERVER, HOSTMONITOR, REPORTSMANAGER, SERVICEMONITOR]
+  databases: 
+    REPORTSMANAGER:
+      host: "{{ database_host }}"
+      port: "{{ database_type | default_database_port }}"
+      type: "{{ database_type }}"
+      name: rman
+      user: rman
+      password: "{{ vault__rman_database_password }}"
+
+hosts:
+  configs:
+    host_default_proc_memswap_thresholds:
+      warning: never
+      critical: never
+    host_memswap_thresholds:
+      warning: never
+      critical: never
+    host_config_suppression_agent_system_user_group_validator: true
+
+cloudera_manager_version: 7.7.1
+cloudera_manager_license_type: enterprise
+# Set the local Cloudera Enterprise License file here:
+cloudera_manager_license_file: "/tmp/enterprise_cloudera_license.txt"
+cloudera_manager_options:
+  CUSTOM_BANNER_HTML: "Cloudera Deploy put a custom banner here"
+# Set the local Cloudera Manager repository here:
+cloudera_manager_repo_url: https://local.repo/cm7/7.7.1/redhat8/yum/
+# Set the local Cloudera Manager CSD repositories here noting Spark 3 is a seperate CSD
+cloudera_manager_csds:
+  - https://local.repo/spark3/3.3.1/csd/SPARK3_ON_YARN-3.3.1.jar
+
+# Set the Kerberos realm and admin access for Cloudera Manager to create the required accounts
+# Remove any encryption types not supported
+krb5_realm: REALM.HERE
+krb5_kdc_admin_user: admin@REALM.HERE
+krb5_kdc_admin_password: "{{ vault__krb5_kdc_admin_password }}"
+krb5_kdc_host: kdc.host.here
+krb5_kdc_type: "Red Hat IPA"
+krb5_enc_types: "aes256-cts aes128-cts RC4-HMAC AES128-CTS-HMAC-SHA1-96 AES256-CTS-HMAC-SHA1-96"
+
+# FreeIPA will not be used to sign certificates
+skip_ipa_signing: true
+
+# Auto-TLS Use Case 3: Using Existing Signed Certificates
+# Follow the instructions in the Cloudera Auto-TLS documentation
+# This will include adding information to the Cloudera Manager via the API once its installed and this playbook fails
+# Set the location of the existing TLS Certificate Authority (CA) Certificates
+tls_ca_certs:
+  - path: /path/to/ca.crt
+    alias: clusterca
+    
+# Set the location of the existing signed TLS Certificates
+# This location will contain signed PEM format certificates, one per server named with the FQDN of the host:
+# host-1.fully.qualified.example.com.pem
+tls_signed_certs_dir: /path/to/signed/certs
+
+# Oracle settings
+# The playbook will try search and install the driver from a maven repo
+# Set to the local maven repo url hosting the oracle drivers
+maven_repo: https://local.maven.repo/maven2
+
+# The Oracle instantclient assets need to be on the ansible controller
+oracle_instantclient_basic_zip: /path/to/asset
+oracle_instantclient_sdk_zip: /path/to/asset
+
+# Database settings for host, database name, user and password
+database_type: oracle
+database_host: oracle.host
+cloudera_manager_database_name: scm
+cloudera_manager_database_user: scm
+cloudera_manager_database_password: "{{ vault__scm_database_password }}"
+
+# Example Oracle RAC or Exadata database name:
+# (DESCRIPTION=(LOAD_BALANCE=off)(FAILOVER=on)(CONNECT_TIMEOUT=5)(TRANSPORT_CONNECT_TIMEOUT=3)(RETRY_COUNT=3)(ADDRESS=(PROTOCOL=TCP)(HOST=[***HOSTNAME-OR-SCAN-IP***])(PORT=[***PORT***]))(CONNECT_DATA=(SERVICE_NAME=[***SERVICE-NAME***])))
